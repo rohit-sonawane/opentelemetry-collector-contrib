@@ -43,6 +43,8 @@ func createDefaultConfig() component.Config {
 			ReportsHealth:              true,
 			ReportsAvailableComponents: true,
 			AcceptsRestartCommand:      false,
+			AcceptsRemoteConfig:        false,
+			ReportsRemoteConfig:        false,
 		},
 		PPIDPollInterval: 5 * time.Second,
 	}

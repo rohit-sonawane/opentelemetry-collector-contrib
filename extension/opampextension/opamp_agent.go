@@ -86,6 +86,9 @@ type opampAgent struct {
 	startTimeUnixNano    uint64
 	componentStatusCh    chan *eventSourcePair
 	readyCh              chan struct{}
+
+	remoteConfig   *protobufs.AgentRemoteConfig
+	remoteConfigMu sync.RWMutex
 }
 
 var (
@@ -185,6 +188,8 @@ func (o *opampAgent) Start(ctx context.Context, host component.Host) error {
 	}
 
 	o.logger.Debug("OpAMP client started")
+
+	o.loadAndApplyPersistedRemoteConfig()
 
 	return nil
 }
@@ -461,6 +466,10 @@ func (o *opampAgent) onMessage(_ context.Context, msg *types.MessageData) {
 		} else {
 			o.updateAgentIdentity(instanceID)
 		}
+	}
+
+	if msg.RemoteConfig != nil {
+		o.processRemoteConfig(msg.RemoteConfig)
 	}
 
 	if msg.CustomMessage != nil {

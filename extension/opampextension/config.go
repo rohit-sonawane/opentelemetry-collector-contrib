@@ -47,6 +47,16 @@ type Config struct {
 
 	// PPIDPollInterval is the time between polling for whether PPID is running.
 	PPIDPollInterval time.Duration `mapstructure:"ppid_poll_interval"`
+
+	// Storage contains the configuration for persisting remote config and state to disk.
+	// Required when AcceptsRemoteConfig capability is enabled.
+	Storage StorageConfig `mapstructure:"storage"`
+}
+
+// StorageConfig defines where the extension persists remote config and state files.
+type StorageConfig struct {
+	// Directory is the path where remote config files and state are persisted.
+	Directory string `mapstructure:"directory"`
 }
 
 type AgentDescription struct {
@@ -67,6 +77,12 @@ type Capabilities struct {
 	ReportsAvailableComponents bool `mapstructure:"reports_available_components"`
 	// AcceptsRestartCommand enables the OpAMP AcceptsRestartCommand Capability (default: false)
 	AcceptsRestartCommand bool `mapstructure:"accepts_restart_command"`
+	// AcceptsRemoteConfig enables the OpAMP AcceptsRemoteConfig Capability. When enabled, the
+	// extension will persist remote config files received from the server to the storage directory. (default: false)
+	AcceptsRemoteConfig bool `mapstructure:"accepts_remote_config"`
+	// ReportsRemoteConfig enables the OpAMP ReportsRemoteConfig Capability. When enabled, the
+	// extension reports remote config status back to the server. (default: false)
+	ReportsRemoteConfig bool `mapstructure:"reports_remote_config"`
 }
 
 func (caps Capabilities) toAgentCapabilities() protobufs.AgentCapabilities {
@@ -84,6 +100,12 @@ func (caps Capabilities) toAgentCapabilities() protobufs.AgentCapabilities {
 	}
 	if caps.AcceptsRestartCommand {
 		agentCapabilities |= protobufs.AgentCapabilities_AgentCapabilities_AcceptsRestartCommand
+	}
+	if caps.AcceptsRemoteConfig {
+		agentCapabilities |= protobufs.AgentCapabilities_AgentCapabilities_AcceptsRemoteConfig
+	}
+	if caps.ReportsRemoteConfig {
+		agentCapabilities |= protobufs.AgentCapabilities_AgentCapabilities_ReportsRemoteConfig
 	}
 
 	return agentCapabilities
@@ -231,6 +253,10 @@ func (cfg *Config) Validate() error {
 		if err != nil {
 			return errors.New("opamp instance_uid is invalid")
 		}
+	}
+
+	if cfg.Capabilities.AcceptsRemoteConfig && cfg.Storage.Directory == "" {
+		return errors.New("storage.directory must be set when accepts_remote_config capability is enabled")
 	}
 
 	return nil

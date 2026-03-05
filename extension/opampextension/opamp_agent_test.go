@@ -910,7 +910,8 @@ func (m *mockStatusAggregator) RecordStatus(source *componentstatus.InstanceID, 
 }
 
 type mockOpAMPClient struct {
-	setHealthFunc func(health *protobufs.ComponentHealth) error
+	setHealthFunc             func(health *protobufs.ComponentHealth) error
+	setRemoteConfigStatusFunc func(rcs *protobufs.RemoteConfigStatus) error
 }
 
 func (mockOpAMPClient) SetCapabilities(*protobufs.AgentCapabilities) error {
@@ -941,7 +942,10 @@ func (mockOpAMPClient) UpdateEffectiveConfig(context.Context) error {
 	return nil
 }
 
-func (mockOpAMPClient) SetRemoteConfigStatus(*protobufs.RemoteConfigStatus) error {
+func (m mockOpAMPClient) SetRemoteConfigStatus(rcs *protobufs.RemoteConfigStatus) error {
+	if m.setRemoteConfigStatusFunc != nil {
+		return m.setRemoteConfigStatusFunc(rcs)
+	}
 	return nil
 }
 

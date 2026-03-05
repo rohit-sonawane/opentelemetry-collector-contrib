@@ -217,6 +217,7 @@ func TestConfig_Validate(t *testing.T) {
 		Server       *OpAMPServer
 		InstanceUID  string
 		Capabilities Capabilities
+		Storage      StorageConfig
 	}
 	tests := []struct {
 		name    string
@@ -358,14 +359,33 @@ func TestConfig_Validate(t *testing.T) {
 				return assert.Equal(t, "extension.opampextension.RemoteRestarts feature gate must be enabled to use the accepts_restart_command capability", err.Error())
 			},
 		},
+		{
+			name: "accepts_remote_config without storage directory",
+			fields: fields{
+				Capabilities: Capabilities{
+					AcceptsRemoteConfig: true,
+				},
+				Server: &OpAMPServer{
+					HTTP: &httpFields{
+						commonFields: commonFields{
+							Endpoint: "https://127.0.0.1:4320/v1/opamp",
+						},
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, _ ...any) bool {
+				return assert.Equal(t, "storage.directory must be set when accepts_remote_config capability is enabled", err.Error())
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{
-				Server:       tt.fields.Server,
-				InstanceUID:  tt.fields.InstanceUID,
-				Capabilities: tt.fields.Capabilities,
-			}
+		cfg := &Config{
+			Server:       tt.fields.Server,
+			InstanceUID:  tt.fields.InstanceUID,
+			Capabilities: tt.fields.Capabilities,
+			Storage:      tt.fields.Storage,
+		}
 			tt.wantErr(t, cfg.Validate())
 		})
 	}
@@ -376,6 +396,8 @@ func TestCapabilities_toAgentCapabilities(t *testing.T) {
 		ReportsEffectiveConfig     bool
 		ReportsHealth              bool
 		ReportsAvailableComponents bool
+		AcceptsRemoteConfig        bool
+		ReportsRemoteConfig        bool
 	}
 	tests := []struct {
 		name   string
@@ -388,6 +410,8 @@ func TestCapabilities_toAgentCapabilities(t *testing.T) {
 				ReportsEffectiveConfig:     false,
 				ReportsHealth:              false,
 				ReportsAvailableComponents: false,
+				AcceptsRemoteConfig:        false,
+				ReportsRemoteConfig:        false,
 			},
 			want: protobufs.AgentCapabilities_AgentCapabilities_ReportsStatus,
 		},
@@ -397,8 +421,18 @@ func TestCapabilities_toAgentCapabilities(t *testing.T) {
 				ReportsEffectiveConfig:     true,
 				ReportsHealth:              true,
 				ReportsAvailableComponents: true,
+				AcceptsRemoteConfig:        false,
+				ReportsRemoteConfig:        false,
 			},
 			want: protobufs.AgentCapabilities_AgentCapabilities_ReportsStatus | protobufs.AgentCapabilities_AgentCapabilities_ReportsEffectiveConfig | protobufs.AgentCapabilities_AgentCapabilities_ReportsHealth | protobufs.AgentCapabilities_AgentCapabilities_ReportsAvailableComponents,
+		},
+		{
+			name: "remote config capabilities enabled",
+			fields: fields{
+				AcceptsRemoteConfig: true,
+				ReportsRemoteConfig: true,
+			},
+			want: protobufs.AgentCapabilities_AgentCapabilities_ReportsStatus | protobufs.AgentCapabilities_AgentCapabilities_AcceptsRemoteConfig | protobufs.AgentCapabilities_AgentCapabilities_ReportsRemoteConfig,
 		},
 	}
 	for _, tt := range tests {
@@ -406,7 +440,9 @@ func TestCapabilities_toAgentCapabilities(t *testing.T) {
 			caps := Capabilities{
 				ReportsEffectiveConfig:     tt.fields.ReportsEffectiveConfig,
 				ReportsHealth:              tt.fields.ReportsHealth,
-				ReportsAvailableComponents: tt.fields.ReportsEffectiveConfig,
+				ReportsAvailableComponents: tt.fields.ReportsAvailableComponents,
+				AcceptsRemoteConfig:        tt.fields.AcceptsRemoteConfig,
+				ReportsRemoteConfig:        tt.fields.ReportsRemoteConfig,
 			}
 			assert.Equalf(t, tt.want, caps.toAgentCapabilities(), "toAgentCapabilities()")
 		})
